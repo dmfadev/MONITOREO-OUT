@@ -1,1 +1,1040 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auditoría de Asistencia — Merchants</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --surface2: #f0ede8;
+    --border: rgba(0,0,0,0.10);
+    --border-strong: rgba(0,0,0,0.18);
+    --text: #1a1a18;
+    --text-muted: #6b6a65;
+    --text-hint: #9c9a94;
+    --ok-bg: #eaf3de; --ok-border: #639922; --ok-text: #27500a;
+    --warn-bg: #faeeda; --warn-border: #ba7517; --warn-text: #633806;
+    --danger-bg: #fcebeb; --danger-border: #a32d2d; --danger-text: #501313;
+    --info-bg: #e6f1fb; --info-border: #185fa5; --info-text: #042c53;
+    --accent: #3C3489;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a18; --surface: #252523; --surface2: #2c2c2a;
+      --border: rgba(255,255,255,0.10); --border-strong: rgba(255,255,255,0.18);
+      --text: #e8e6de; --text-muted: #9c9a92; --text-hint: #6b6a65;
+      --ok-bg: #173404; --ok-border: #639922; --ok-text: #c0dd97;
+      --warn-bg: #412402; --warn-border: #ef9f27; --warn-text: #fac775;
+      --danger-bg: #501313; --danger-border: #e24b4a; --danger-text: #f7c1c1;
+      --info-bg: #042c53; --info-border: #378add; --info-text: #b5d4f4;
+      --accent: #AFA9EC;
+    }
+  }
+
+  body {
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--surface);
+    border-bottom: 0.5px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  .logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+
+  /* ── Layout ── */
+  main { max-width: 1280px; margin: 0 auto; padding: 2rem; }
+  section { margin-bottom: 2rem; }
+  h2 { font-size: 13px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 1rem; }
+
+  /* ── Setup panel ── */
+  .setup-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+  }
+  .setup-card h3 { font-size: 15px; font-weight: 500; margin-bottom: 0.5rem; }
+  .setup-card p { color: var(--text-muted); font-size: 13px; margin-bottom: 1.25rem; line-height: 1.6; }
+  .field-group { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  @media(max-width: 640px) { .field-group { grid-template-columns: 1fr; } }
+  .field label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; font-weight: 500; }
+  .field input, .field select {
+    width: 100%;
+    background: var(--surface2);
+    border: 0.5px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    padding: 7px 10px;
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    transition: border-color .15s;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+  .hint {
+    background: var(--info-bg);
+    border: 0.5px solid var(--info-border);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--info-text);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+  }
+  .hint strong { font-weight: 600; }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 0.5px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text);
+    transition: background .12s, opacity .12s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--surface2); }
+  .btn:active { opacity: .85; }
+  .btn-primary { background: var(--accent); color: #fff; border-color: transparent; }
+  .btn-primary:hover { opacity: .9; background: var(--accent); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* ── KPI cards ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+  }
+  .kpi {
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    padding: 1rem;
+    text-align: center;
+  }
+  .kpi-label { font-size: 11px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+  .kpi-value { font-size: 26px; font-weight: 500; letter-spacing: -0.02em; }
+  .kpi-value.ok { color: var(--ok-text); }
+  .kpi-value.warn { color: var(--warn-text); }
+  .kpi-value.danger { color: var(--danger-text); }
+  .kpi-value.info { color: var(--info-text); }
+
+  /* ── Filters bar ── */
+  .filters {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    margin-bottom: 1rem;
+  }
+  .filters input, .filters select {
+    background: var(--surface2);
+    border: 0.5px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--text);
+    outline: none;
+  }
+  .filters label { font-size: 12px; color: var(--text-muted); }
+  .filter-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 0.5px solid transparent;
+    transition: all .12s;
+  }
+  .filter-tag.all   { background: var(--surface2); border-color: var(--border-strong); color: var(--text); }
+  .filter-tag.ok    { background: var(--ok-bg); border-color: var(--ok-border); color: var(--ok-text); }
+  .filter-tag.warn  { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-text); }
+  .filter-tag.danger{ background: var(--danger-bg); border-color: var(--danger-border); color: var(--danger-text); }
+  .filter-tag.active { box-shadow: 0 0 0 2px currentColor; }
+
+  /* ── Table ── */
+  .table-wrap {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--text-muted);
+    background: var(--surface2);
+    border-bottom: 0.5px solid var(--border);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  thead th:hover { color: var(--text); }
+  thead th .sort-arrow { opacity: .35; font-size: 10px; margin-left: 3px; }
+  thead th.asc .sort-arrow::after { content: '▲'; }
+  thead th.desc .sort-arrow::after { content: '▼'; }
+  tbody tr { border-bottom: 0.5px solid var(--border); transition: background .08s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+  tbody td { padding: 9px 14px; vertical-align: middle; }
+  .td-merchant { font-weight: 500; }
+  .td-id { color: var(--text-muted); font-size: 12px; }
+  .td-date { color: var(--text-muted); white-space: nowrap; }
+  .td-time { font-family: monospace; font-size: 12px; }
+  .td-time.missing { color: var(--text-hint); font-style: italic; }
+
+  /* Status badges */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge.ok     { background: var(--ok-bg);     color: var(--ok-text);     border: 0.5px solid var(--ok-border); }
+  .badge.warn   { background: var(--warn-bg);   color: var(--warn-text);   border: 0.5px solid var(--warn-border); }
+  .badge.danger { background: var(--danger-bg); color: var(--danger-text); border: 0.5px solid var(--danger-border); }
+
+  /* Absence pill */
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    background: var(--info-bg);
+    color: var(--info-text);
+    border: 0.5px solid var(--info-border);
+  }
+  .pill.none { background: var(--surface2); color: var(--text-hint); border-color: var(--border); }
+
+  /* ── Empty / loading states ── */
+  .state-box {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-muted);
+  }
+  .state-box .icon { font-size: 2rem; margin-bottom: .75rem; }
+  .state-box p { font-size: 13px; }
+
+  /* ── Progress bar ── */
+  .progress-wrap { height: 4px; background: var(--surface2); border-radius: 2px; margin: .5rem 0; overflow: hidden; }
+  .progress-bar { height: 100%; background: var(--accent); border-radius: 2px; transition: width .3s; }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 200;
+    opacity: 0; pointer-events: none;
+    transition: opacity .15s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    width: 90%;
+    max-width: 480px;
+    border: 0.5px solid var(--border-strong);
+    transform: translateY(8px);
+    transition: transform .15s;
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+  .modal h3 { font-size: 15px; font-weight: 500; margin-bottom: .75rem; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 1.25rem; }
+
+  /* ── Snackbar ── */
+  #snack {
+    position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: #252523; color: #e8e6de;
+    padding: 10px 20px; border-radius: 999px; font-size: 13px;
+    transition: transform .2s; z-index: 300; white-space: nowrap;
+  }
+  #snack.show { transform: translateX(-50%) translateY(0); }
+  @media(prefers-color-scheme: dark) { #snack { background: #e8e6de; color: #252523; } }
+
+  /* ── Pagination ── */
+  .pagination { display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-top: 0.5px solid var(--border); font-size: 12px; color: var(--text-muted); }
+  .pagination button { padding: 4px 10px; border-radius: var(--radius-sm); border: 0.5px solid var(--border-strong); background: var(--surface); color: var(--text); cursor: pointer; font-size: 12px; }
+  .pagination button:disabled { opacity: .4; cursor: default; }
+  .pagination button.active { background: var(--accent); color: #fff; border-color: transparent; }
+  .pg-spacer { flex: 1; }
+
+  /* ── Chart ── */
+  .chart-wrap { display: flex; gap: 1rem; align-items: flex-end; padding: 1rem 0; }
+  .bar-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .bar-stack { width: 100%; display: flex; flex-direction: column; gap: 2px; min-height: 80px; justify-content: flex-end; }
+  .bar-seg { border-radius: 3px; min-height: 4px; transition: height .3s; }
+  .bar-label { font-size: 11px; color: var(--text-muted); text-align: center; word-break: break-all; }
+
+  /* ── Responsive tweaks ── */
+  @media(max-width: 640px) {
+    main { padding: 1rem; }
+    header { padding: 0 1rem; }
+    .filters { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    Auditoría de Asistencia · Merchants
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-sm" onclick="openConfig()">⚙ Configurar</button>
+    <button class="btn btn-sm btn-primary" onclick="exportExcel()" id="btn-export" disabled>⬇ Exportar Excel</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- SETUP -->
+  <section id="section-setup">
+    <h2>Fuentes de datos</h2>
+    <div class="setup-card">
+      <h3>Conectar Google Sheets</h3>
+      <p>Cargá tus datos desde dos hojas públicas de Google Sheets: una con las marcaciones y otra con las ausencias del formulario List. Las hojas deben ser públicas (modo "cualquier persona con el enlace puede ver").</p>
+
+      <div class="hint">
+        <strong>¿Cómo obtener la URL CSV?</strong><br>
+        En Google Sheets → Archivo → Publicar en la web → Hoja específica → Formato: CSV → Publicar. Luego pegá la URL aquí.<br><br>
+        <strong>Columnas requeridas — Marcaciones:</strong> <code>ID</code>, <code>Nombre</code>, <code>Fecha</code>, <code>Entrada</code>, <code>Salida</code><br>
+        <strong>Columnas requeridas — Ausencias:</strong> <code>ID</code>, <code>Nombre</code>, <code>Fecha</code>, <code>Motivo</code>
+      </div>
+
+      <div class="field-group">
+        <div class="field">
+          <label>URL CSV — Marcaciones</label>
+          <input type="text" id="url-marcaciones" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv" />
+        </div>
+        <div class="field">
+          <label>URL CSV — Ausencias (Formulario List)</label>
+          <input type="text" id="url-ausencias" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv" />
+        </div>
+      </div>
+
+      <div class="field-group">
+        <div class="field">
+          <label>Columna ID Merchant</label>
+          <input type="text" id="col-id" value="ID" />
+        </div>
+        <div class="field">
+          <label>Columna Fecha</label>
+          <input type="text" id="col-fecha" value="Fecha" />
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="cargarDatos()">▶ Cargar y analizar</button>
+        <button class="btn" onclick="cargarDemoData()">📋 Cargar datos de ejemplo</button>
+      </div>
+
+      <div id="progress-area" style="display:none; margin-top:1rem;">
+        <div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;" id="progress-text">Cargando...</div>
+        <div class="progress-wrap"><div class="progress-bar" id="progress-bar" style="width:0%"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- KPIs -->
+  <section id="section-kpis" style="display:none;">
+    <h2>Resumen del período</h2>
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">Total días analizados</div>
+        <div class="kpi-value info" id="kpi-total">0</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">✅ Con marcación</div>
+        <div class="kpi-value ok" id="kpi-ok">0</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">⚠ Ausencia justificada</div>
+        <div class="kpi-value warn" id="kpi-warn">0</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">❌ Sin registro</div>
+        <div class="kpi-value danger" id="kpi-danger">0</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Cobertura total</div>
+        <div class="kpi-value info" id="kpi-cobertura">0%</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CHART -->
+  <section id="section-chart" style="display:none;">
+    <h2>Distribución por merchant</h2>
+    <div class="table-wrap" style="padding: 1rem 1.5rem;">
+      <div class="chart-wrap" id="chart-bars"></div>
+    </div>
+  </section>
+
+  <!-- TABLE -->
+  <section id="section-table" style="display:none;">
+    <h2>Detalle por día y merchant</h2>
+
+    <div class="filters">
+      <input type="text" id="filter-search" placeholder="Buscar merchant..." oninput="applyFilters()" style="min-width:180px;" />
+      <input type="date" id="filter-desde" onchange="applyFilters()" />
+      <span style="font-size:12px;color:var(--text-hint)">→</span>
+      <input type="date" id="filter-hasta" onchange="applyFilters()" />
+      <div style="flex:1; min-width:10px;"></div>
+      <span class="filter-tag all active" onclick="setStatusFilter('all', this)">Todos</span>
+      <span class="filter-tag ok" onclick="setStatusFilter('ok', this)">✅ OK</span>
+      <span class="filter-tag warn" onclick="setStatusFilter('warn', this)">⚠ Justificado</span>
+      <span class="filter-tag danger" onclick="setStatusFilter('danger', this)">❌ Sin registro</span>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-scroll">
+        <table id="audit-table">
+          <thead>
+            <tr>
+              <th onclick="sortBy('nombre')">Merchant <span class="sort-arrow"></span></th>
+              <th onclick="sortBy('id')">ID <span class="sort-arrow"></span></th>
+              <th onclick="sortBy('fecha')">Fecha <span class="sort-arrow"></span></th>
+              <th onclick="sortBy('entrada')">Entrada <span class="sort-arrow"></span></th>
+              <th onclick="sortBy('salida')">Salida <span class="sort-arrow"></span></th>
+              <th>Ausencia registrada</th>
+              <th onclick="sortBy('estado')">Estado <span class="sort-arrow"></span></th>
+            </tr>
+          </thead>
+          <tbody id="audit-body">
+            <tr><td colspan="7"><div class="state-box"><div class="icon">📊</div><p>Cargá los datos para ver el análisis</p></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Config Modal -->
+<div class="modal-overlay" id="modal-config">
+  <div class="modal">
+    <h3>Configuración de columnas</h3>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:1rem;">Adaptá los nombres de columna a tu hoja de cálculo.</p>
+    <div class="field" style="margin-bottom:10px;"><label>Columna — Nombre merchant</label><input type="text" id="cfg-nombre" value="Nombre" /></div>
+    <div class="field" style="margin-bottom:10px;"><label>Columna — ID / Cédula</label><input type="text" id="cfg-id" value="ID" /></div>
+    <div class="field" style="margin-bottom:10px;"><label>Columna — Fecha</label><input type="text" id="cfg-fecha" value="Fecha" /></div>
+    <div class="field" style="margin-bottom:10px;"><label>Columna — Hora entrada</label><input type="text" id="cfg-entrada" value="Entrada" /></div>
+    <div class="field" style="margin-bottom:10px;"><label>Columna — Hora salida</label><input type="text" id="cfg-salida" value="Salida" /></div>
+    <div class="field" style="margin-bottom:10px;"><label>Columna — Motivo ausencia</label><input type="text" id="cfg-motivo" value="Motivo" /></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveConfig()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div id="snack"></div>
+
+<script>
+// ──────────────────────────────────────────────
+// STATE
+// ──────────────────────────────────────────────
+let allRows = [];
+let filteredRows = [];
+let currentPage = 1;
+const PAGE_SIZE = 25;
+let sortCol = 'fecha';
+let sortDir = 'asc';
+let statusFilter = 'all';
+
+let COL = {
+  nombre: 'Nombre', id: 'ID', fecha: 'Fecha',
+  entrada: 'Entrada', salida: 'Salida', motivo: 'Motivo'
+};
+
+// ──────────────────────────────────────────────
+// CONFIG MODAL
+// ──────────────────────────────────────────────
+function openConfig() {
+  document.getElementById('cfg-nombre').value = COL.nombre;
+  document.getElementById('cfg-id').value = COL.id;
+  document.getElementById('cfg-fecha').value = COL.fecha;
+  document.getElementById('cfg-entrada').value = COL.entrada;
+  document.getElementById('cfg-salida').value = COL.salida;
+  document.getElementById('cfg-motivo').value = COL.motivo;
+  document.getElementById('modal-config').classList.add('open');
+}
+function closeModal() { document.getElementById('modal-config').classList.remove('open'); }
+function saveConfig() {
+  COL.nombre = document.getElementById('cfg-nombre').value.trim() || 'Nombre';
+  COL.id     = document.getElementById('cfg-id').value.trim() || 'ID';
+  COL.fecha  = document.getElementById('cfg-fecha').value.trim() || 'Fecha';
+  COL.entrada= document.getElementById('cfg-entrada').value.trim() || 'Entrada';
+  COL.salida = document.getElementById('cfg-salida').value.trim() || 'Salida';
+  COL.motivo = document.getElementById('cfg-motivo').value.trim() || 'Motivo';
+  closeModal();
+  snack('Configuración guardada');
+  if (allRows.length) renderAll();
+}
+document.getElementById('modal-config').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+// ──────────────────────────────────────────────
+// SNACKBAR
+// ──────────────────────────────────────────────
+function snack(msg) {
+  const el = document.getElementById('snack');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ──────────────────────────────────────────────
+// CSV FETCH
+// ──────────────────────────────────────────────
+function setProgress(pct, txt) {
+  document.getElementById('progress-area').style.display = 'block';
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('progress-text').textContent = txt;
+}
+
+async function fetchCSV(url) {
+  // Handle Google Sheets URL variations
+  if (url.includes('spreadsheets/d/')) {
+    // Convert edit/view URLs to CSV export
+    const idMatch = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    const gidMatch = url.match(/[?&]gid=([0-9]+)/);
+    if (idMatch) {
+      const sheetId = idMatch[1];
+      const gid = gidMatch ? gidMatch[1] : '0';
+      if (!url.includes('pub?') && !url.includes('output=csv')) {
+        url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+      }
+    }
+  }
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Error ${res.status} al cargar: ${url}`);
+  const text = await res.text();
+  return parseCSV(text);
+}
+
+function parseCSV(text) {
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const headers = parseCSVLine(lines[0]);
+  return lines.slice(1).map(line => {
+    const vals = parseCSVLine(line);
+    const obj = {};
+    headers.forEach((h, i) => { obj[h.trim()] = (vals[i] || '').trim(); });
+    return obj;
+  }).filter(r => Object.values(r).some(v => v));
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { inQ = !inQ; continue; }
+    if (c === ',' && !inQ) { result.push(cur); cur = ''; continue; }
+    cur += c;
+  }
+  result.push(cur);
+  return result;
+}
+
+// ──────────────────────────────────────────────
+// CROSS-REFERENCE LOGIC
+// ──────────────────────────────────────────────
+function normalizeDate(d) {
+  if (!d) return '';
+  // Try to standardize date formats
+  d = d.trim();
+  // DD/MM/YYYY → YYYY-MM-DD
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(d)) {
+    const [dd, mm, yyyy] = d.split('/');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  // MM/DD/YYYY → YYYY-MM-DD
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(d)) {
+    const parts = d.split('/');
+    return `${parts[2]}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
+  }
+  return d;
+}
+
+function buildKey(id, fecha) {
+  return `${String(id).trim().toLowerCase()}__${normalizeDate(fecha)}`;
+}
+
+function crossReference(marcaciones, ausencias) {
+  // Build ausencia map: key → motivo
+  const ausenciaMap = {};
+  ausencias.forEach(row => {
+    const id = row[COL.id] || row['ID'] || '';
+    const fecha = row[COL.fecha] || row['Fecha'] || '';
+    const motivo = row[COL.motivo] || row['Motivo'] || 'Sin especificar';
+    if (id && fecha) {
+      ausenciaMap[buildKey(id, fecha)] = motivo;
+    }
+  });
+
+  // Process marcaciones
+  const result = marcaciones.map(row => {
+    const id     = row[COL.id]      || row['ID']      || '';
+    const nombre = row[COL.nombre]  || row['Nombre']  || 'Sin nombre';
+    const fecha  = row[COL.fecha]   || row['Fecha']   || '';
+    const entrada= row[COL.entrada] || row['Entrada'] || '';
+    const salida = row[COL.salida]  || row['Salida']  || '';
+
+    const key = buildKey(id, fecha);
+    const ausencia = ausenciaMap[key] || null;
+
+    const tieneMarcacion = entrada.trim() !== '';
+    let estado, estadoLabel;
+
+    if (tieneMarcacion) {
+      estado = 'ok';
+      estadoLabel = 'Con marcación';
+    } else if (ausencia) {
+      estado = 'warn';
+      estadoLabel = 'Ausencia justificada';
+    } else {
+      estado = 'danger';
+      estadoLabel = 'Sin registro';
+    }
+
+    // Mark used ausencias
+    if (ausencia) delete ausenciaMap[key];
+
+    return { id, nombre, fecha: normalizeDate(fecha), fechaOrig: fecha, entrada, salida, ausencia, estado, estadoLabel };
+  });
+
+  // Add rows from ausencias that had NO matching marcacion (ausencia sin marcacion, potentially missed)
+  Object.entries(ausenciaMap).forEach(([key, motivo]) => {
+    const [id, fecha] = key.split('__');
+    // Find name from ausencias
+    const ausRow = ausencias.find(r => {
+      const rId = (r[COL.id] || r['ID'] || '').trim().toLowerCase();
+      const rF = normalizeDate(r[COL.fecha] || r['Fecha'] || '');
+      return rId === id && rF === fecha;
+    });
+    const nombre = ausRow ? (ausRow[COL.nombre] || ausRow['Nombre'] || 'Sin nombre') : id;
+    result.push({ id, nombre, fecha, fechaOrig: fecha, entrada: '', salida: '', ausencia: motivo, estado: 'warn', estadoLabel: 'Ausencia justificada' });
+  });
+
+  return result;
+}
+
+// ──────────────────────────────────────────────
+// LOAD DATA
+// ──────────────────────────────────────────────
+async function cargarDatos() {
+  const urlM = document.getElementById('url-marcaciones').value.trim();
+  const urlA = document.getElementById('url-ausencias').value.trim();
+  if (!urlM || !urlA) { snack('Por favor ingresá ambas URLs de Google Sheets'); return; }
+
+  try {
+    setProgress(10, 'Descargando marcaciones...');
+    const marcaciones = await fetchCSV(urlM);
+    setProgress(55, 'Descargando ausencias...');
+    const ausencias   = await fetchCSV(urlA);
+    setProgress(85, 'Cruzando datos...');
+    allRows = crossReference(marcaciones, ausencias);
+    setProgress(100, `${allRows.length} registros procesados`);
+    setTimeout(() => { document.getElementById('progress-area').style.display = 'none'; }, 1200);
+    renderAll();
+    snack(`✅ ${allRows.length} registros analizados`);
+  } catch (e) {
+    snack('❌ Error: ' + e.message);
+    setProgress(0, 'Error al cargar datos');
+    console.error(e);
+  }
+}
+
+// ──────────────────────────────────────────────
+// DEMO DATA
+// ──────────────────────────────────────────────
+function cargarDemoData() {
+  const merchants = [
+    { id: '1234567', nombre: 'García, Juan' },
+    { id: '2345678', nombre: 'López, María' },
+    { id: '3456789', nombre: 'Martínez, Carlos' },
+    { id: '4567890', nombre: 'Rodríguez, Ana' },
+    { id: '5678901', nombre: 'Fernández, Pedro' },
+  ];
+  const motivos = ['Licencia médica', 'Vacaciones', 'Permiso especial', 'Inasistencia justificada', 'Suspensión'];
+  const dates = [];
+  for (let d = 1; d <= 20; d++) {
+    dates.push(`2025-06-${String(d).padStart(2,'0')}`);
+  }
+
+  const marcaciones = [];
+  const ausencias = [];
+
+  merchants.forEach(m => {
+    dates.forEach(fecha => {
+      const r = Math.random();
+      if (r < 0.70) {
+        // Has marcacion
+        const h = 7 + Math.floor(Math.random()*2);
+        const min = Math.floor(Math.random()*60);
+        marcaciones.push({ ID: m.id, Nombre: m.nombre, Fecha: fecha, Entrada: `${h}:${String(min).padStart(2,'0')}`, Salida: `${h+9}:${String(Math.floor(Math.random()*60)).padStart(2,'0')}` });
+      } else if (r < 0.88) {
+        // Has marcacion but also ausencia (shouldn't happen, but test edge)
+        marcaciones.push({ ID: m.id, Nombre: m.nombre, Fecha: fecha, Entrada: '', Salida: '' });
+        ausencias.push({ ID: m.id, Nombre: m.nombre, Fecha: fecha, Motivo: motivos[Math.floor(Math.random()*motivos.length)] });
+      } else {
+        // Missing both — ❌
+        marcaciones.push({ ID: m.id, Nombre: m.nombre, Fecha: fecha, Entrada: '', Salida: '' });
+      }
+    });
+  });
+
+  allRows = crossReference(marcaciones, ausencias);
+  renderAll();
+  snack('📋 Datos de ejemplo cargados — ' + allRows.length + ' registros');
+}
+
+// ──────────────────────────────────────────────
+// RENDER ALL
+// ──────────────────────────────────────────────
+function renderAll() {
+  document.getElementById('section-kpis').style.display = '';
+  document.getElementById('section-chart').style.display = '';
+  document.getElementById('section-table').style.display = '';
+  document.getElementById('btn-export').disabled = false;
+
+  applyFilters();
+  renderChart();
+  updateKPIs(allRows);
+}
+
+function updateKPIs(rows) {
+  const ok     = rows.filter(r => r.estado === 'ok').length;
+  const warn   = rows.filter(r => r.estado === 'warn').length;
+  const danger = rows.filter(r => r.estado === 'danger').length;
+  const total  = rows.length;
+  const cob    = total > 0 ? Math.round(((ok + warn) / total) * 100) : 0;
+  document.getElementById('kpi-total').textContent   = total.toLocaleString('es');
+  document.getElementById('kpi-ok').textContent      = ok.toLocaleString('es');
+  document.getElementById('kpi-warn').textContent    = warn.toLocaleString('es');
+  document.getElementById('kpi-danger').textContent  = danger.toLocaleString('es');
+  document.getElementById('kpi-cobertura').textContent = cob + '%';
+}
+
+// ──────────────────────────────────────────────
+// CHART
+// ──────────────────────────────────────────────
+function renderChart() {
+  const byMerchant = {};
+  allRows.forEach(r => {
+    const k = r.nombre;
+    if (!byMerchant[k]) byMerchant[k] = { ok:0, warn:0, danger:0 };
+    byMerchant[k][r.estado]++;
+  });
+
+  const merchants = Object.keys(byMerchant).sort();
+  const maxVal = Math.max(...merchants.map(m => byMerchant[m].ok + byMerchant[m].warn + byMerchant[m].danger), 1);
+  const BAR_H = 120;
+
+  const html = merchants.map(m => {
+    const d = byMerchant[m];
+    const total = d.ok + d.warn + d.danger;
+    const hOk   = Math.round((d.ok    / maxVal) * BAR_H);
+    const hWarn = Math.round((d.warn  / maxVal) * BAR_H);
+    const hDang = Math.round((d.danger/ maxVal) * BAR_H);
+    const shortName = m.split(',')[0] || m;
+    return `<div class="bar-item">
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px;">${total}</div>
+      <div class="bar-stack" style="height:${BAR_H}px;">
+        ${d.danger? `<div class="bar-seg" style="height:${hDang}px;background:var(--danger-border);opacity:.8;" title="Sin registro: ${d.danger}"></div>`:''}
+        ${d.warn?   `<div class="bar-seg" style="height:${hWarn}px;background:var(--warn-border);opacity:.8;" title="Justificado: ${d.warn}"></div>`:''}
+        ${d.ok?     `<div class="bar-seg" style="height:${hOk}px;background:var(--ok-border);opacity:.8;" title="OK: ${d.ok}"></div>`:''}
+      </div>
+      <div class="bar-label">${shortName}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('chart-bars').innerHTML = html ||
+    '<p style="color:var(--text-muted);font-size:13px;">Sin datos</p>';
+}
+
+// ──────────────────────────────────────────────
+// FILTERS & SORT
+// ──────────────────────────────────────────────
+function setStatusFilter(status, el) {
+  statusFilter = status;
+  document.querySelectorAll('.filter-tag').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  applyFilters();
+}
+
+function applyFilters() {
+  const search = (document.getElementById('filter-search').value || '').toLowerCase();
+  const desde  = document.getElementById('filter-desde').value;
+  const hasta  = document.getElementById('filter-hasta').value;
+
+  filteredRows = allRows.filter(r => {
+    if (statusFilter !== 'all' && r.estado !== statusFilter) return false;
+    if (search && !r.nombre.toLowerCase().includes(search) && !r.id.includes(search)) return false;
+    if (desde && r.fecha < desde) return false;
+    if (hasta && r.fecha > hasta) return false;
+    return true;
+  });
+
+  sortRows();
+  currentPage = 1;
+  renderTable();
+}
+
+function sortBy(col) {
+  if (sortCol === col) { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; }
+  else { sortCol = col; sortDir = 'asc'; }
+  document.querySelectorAll('thead th').forEach(th => th.classList.remove('asc','desc'));
+  event.currentTarget.classList.add(sortDir);
+  sortRows();
+  renderTable();
+}
+
+function sortRows() {
+  filteredRows.sort((a, b) => {
+    let va = a[sortCol] || '', vb = b[sortCol] || '';
+    if (sortCol === 'fecha') { va = a.fecha; vb = b.fecha; }
+    const cmp = va.localeCompare(vb, 'es', { numeric: true });
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
+}
+
+// ──────────────────────────────────────────────
+// RENDER TABLE
+// ──────────────────────────────────────────────
+function renderTable() {
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const page  = filteredRows.slice(start, start + PAGE_SIZE);
+  const tbody = document.getElementById('audit-body');
+
+  if (!page.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="state-box"><div class="icon">🔍</div><p>No se encontraron registros con los filtros actuales</p></div></td></tr>`;
+    document.getElementById('pagination').innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = page.map(r => {
+    const badgeClass = r.estado;
+    const badgeIcon  = r.estado === 'ok' ? '✅' : r.estado === 'warn' ? '⚠' : '❌';
+    const entradaCell = r.entrada
+      ? `<span class="td-time">${r.entrada}</span>`
+      : `<span class="td-time missing">—</span>`;
+    const salidaCell = r.salida
+      ? `<span class="td-time">${r.salida}</span>`
+      : `<span class="td-time missing">—</span>`;
+    const ausCell = r.ausencia
+      ? `<span class="pill">${r.ausencia}</span>`
+      : `<span class="pill none">No registrada</span>`;
+    const fechaFmt = r.fecha ? r.fecha.split('-').reverse().join('/') : r.fechaOrig;
+
+    return `<tr>
+      <td class="td-merchant">${escHtml(r.nombre)}</td>
+      <td class="td-id">${escHtml(r.id)}</td>
+      <td class="td-date">${fechaFmt}</td>
+      <td>${entradaCell}</td>
+      <td>${salidaCell}</td>
+      <td>${ausCell}</td>
+      <td><span class="badge ${badgeClass}">${badgeIcon} ${r.estadoLabel}</span></td>
+    </tr>`;
+  }).join('');
+
+  renderPagination();
+}
+
+function renderPagination() {
+  const total = filteredRows.length;
+  const pages = Math.ceil(total / PAGE_SIZE);
+  if (pages <= 1) { document.getElementById('pagination').innerHTML = `<span>${total} registros</span>`; return; }
+
+  let html = `<span>${total} registros</span><div class="pg-spacer"></div>`;
+  html += `<button onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>`;
+  for (let p = 1; p <= Math.min(pages, 7); p++) {
+    if (pages > 7 && p === 4 && currentPage > 4) {
+      html += `<span style="color:var(--text-hint);padding:0 4px">…</span>`;
+      p = Math.max(currentPage - 1, 4);
+    }
+    if (pages > 7 && p > currentPage + 2 && p < pages) {
+      html += `<span style="color:var(--text-hint);padding:0 4px">…</span>`;
+      p = pages;
+    }
+    html += `<button onclick="goPage(${p})" class="${p===currentPage?'active':''}">${p}</button>`;
+  }
+  html += `<button onclick="goPage(${currentPage+1})" ${currentPage===pages?'disabled':''}>›</button>`;
+  document.getElementById('pagination').innerHTML = html;
+}
+
+function goPage(p) {
+  const pages = Math.ceil(filteredRows.length / PAGE_SIZE);
+  if (p < 1 || p > pages) return;
+  currentPage = p;
+  renderTable();
+  document.getElementById('section-table').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ──────────────────────────────────────────────
+// EXPORT EXCEL
+// ──────────────────────────────────────────────
+function exportExcel() {
+  if (!allRows.length) { snack('No hay datos para exportar'); return; }
+
+  const wb = XLSX.utils.book_new();
+
+  // ── Hoja 1: Detalle completo ──
+  const detail = allRows.map(r => ({
+    'ID / Cédula'     : r.id,
+    'Merchant'        : r.nombre,
+    'Fecha'           : r.fecha,
+    'Hora Entrada'    : r.entrada || '',
+    'Hora Salida'     : r.salida  || '',
+    'Ausencia Registrada': r.ausencia || 'No',
+    'Estado'          : r.estadoLabel,
+    'Código Estado'   : r.estado.toUpperCase()
+  }));
+
+  const wsDetail = XLSX.utils.json_to_sheet(detail);
+
+  // Column widths
+  wsDetail['!cols'] = [
+    {wch:14},{wch:28},{wch:12},{wch:12},{wch:12},{wch:25},{wch:22},{wch:14}
+  ];
+
+  // Header style via cell format (basic XLSX)
+  const hdrStyle = { font: { bold: true }, fill: { fgColor: { rgb: 'E8E6DE' } }, alignment: { horizontal: 'center' } };
+  const range = XLSX.utils.decode_range(wsDetail['!ref']);
+  for (let C = range.s.c; C <= range.e.c; C++) {
+    const cell = XLSX.utils.encode_cell({ r: 0, c: C });
+    if (wsDetail[cell]) wsDetail[cell].s = hdrStyle;
+  }
+
+  // Color rows by status (basic conditional - row bg)
+  const statusColors = { OK: 'EAF3DE', WARN: 'FAEEDA', DANGER: 'FCEBEB' };
+  for (let R = 1; R <= range.e.r; R++) {
+    const statusCell = XLSX.utils.encode_cell({ r: R, c: 7 }); // Code column
+    const code = wsDetail[statusCell] && wsDetail[statusCell].v ? wsDetail[statusCell].v : '';
+    const color = statusColors[code] || 'FFFFFF';
+    for (let C = range.s.c; C <= range.e.c; C++) {
+      const cell = XLSX.utils.encode_cell({ r: R, c: C });
+      if (!wsDetail[cell]) wsDetail[cell] = { v: '', t: 's' };
+      wsDetail[cell].s = { fill: { fgColor: { rgb: color } } };
+    }
+  }
+
+  XLSX.utils.book_append_sheet(wb, wsDetail, 'Detalle Auditoria');
+
+  // ── Hoja 2: Resumen por merchant ──
+  const byM = {};
+  allRows.forEach(r => {
+    if (!byM[r.id]) byM[r.id] = { id: r.id, nombre: r.nombre, ok: 0, warn: 0, danger: 0 };
+    byM[r.id][r.estado]++;
+  });
+  const summary = Object.values(byM).sort((a,b) => a.nombre.localeCompare(b.nombre)).map(m => {
+    const total = m.ok + m.warn + m.danger;
+    return {
+      'ID / Cédula'      : m.id,
+      'Merchant'         : m.nombre,
+      'Días analizados'  : total,
+      'Con marcación ✅' : m.ok,
+      'Ausencia just. ⚠': m.warn,
+      'Sin registro ❌'  : m.danger,
+      'Cobertura %'      : total > 0 ? `${Math.round(((m.ok+m.warn)/total)*100)}%` : '0%'
+    };
+  });
+  const wsSummary = XLSX.utils.json_to_sheet(summary);
+  wsSummary['!cols'] = [{wch:14},{wch:28},{wch:16},{wch:16},{wch:16},{wch:16},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen por Merchant');
+
+  // ── Hoja 3: Solo inconsistencias ──
+  const issues = allRows.filter(r => r.estado === 'danger').map(r => ({
+    'ID / Cédula' : r.id,
+    'Merchant'    : r.nombre,
+    'Fecha'       : r.fecha,
+    'Problema'    : 'Sin marcación y sin ausencia registrada — REQUIERE ACCIÓN'
+  }));
+  const wsIssues = XLSX.utils.json_to_sheet(issues.length ? issues : [{ Mensaje: 'No se encontraron inconsistencias' }]);
+  wsIssues['!cols'] = [{wch:14},{wch:28},{wch:12},{wch:55}];
+  XLSX.utils.book_append_sheet(wb, wsIssues, 'Inconsistencias ❌');
+
+  // ── Hoja 4: Ausencias justificadas ──
+  const justified = allRows.filter(r => r.estado === 'warn').map(r => ({
+    'ID / Cédula' : r.id,
+    'Merchant'    : r.nombre,
+    'Fecha'       : r.fecha,
+    'Motivo'      : r.ausencia || '—'
+  }));
+  const wsJust = XLSX.utils.json_to_sheet(justified.length ? justified : [{ Mensaje: 'Sin ausencias justificadas' }]);
+  wsJust['!cols'] = [{wch:14},{wch:28},{wch:12},{wch:35}];
+  XLSX.utils.book_append_sheet(wb, wsJust, 'Ausencias Justificadas ⚠');
+
+  const fecha = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `Auditoria_Asistencia_${fecha}.xlsx`);
+  snack('📊 Excel exportado correctamente');
+}
+</script>
+</body>
+</html>
 
